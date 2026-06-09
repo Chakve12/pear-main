@@ -53,10 +53,3 @@ npm run build
 npm run build
 # public/_redirects included for SPA routing
 ```
-
-## Models
-
-- **მარიამი "ფერია"** — `/models/mariami`
-- **ნინუცი** — `/models/ninuci`
-- **ლიზა** — `/models/liza`
-"# pear" 
