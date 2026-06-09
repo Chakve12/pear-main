@@ -19,17 +19,6 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173)
-
-## Demo Accounts
-
-| Role  | Email              | Password |
-|-------|--------------------|----------|
-| Admin | admin@pear.elite   | pear2024 |
-| Model | mariami@pear.elite | pear2024 |
-| Model | ninuci@pear.elite  | pear2024 |
-| Model | liza@pear.elite    | pear2024 |
-
 ## Firebase Setup
 
 1. Copy `.env.example` to `.env`
@@ -64,10 +53,3 @@ npm run build
 npm run build
 # public/_redirects included for SPA routing
 ```
-
-## Models
-
-- **მარიამი "ფერია"** — `/models/mariami`
-- **ნინუცი** — `/models/ninuci`
-- **ლიზა** — `/models/liza`
-"# pear" 
