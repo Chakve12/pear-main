@@ -14,6 +14,7 @@ import {
   localAdminCreateUser,
   localLogOut,
   subscribeLocalAuth,
+  getLocalCustomUsers,
 } from './localAuth'
 
 export function isUsingLocalAuth() {
@@ -70,6 +71,36 @@ export async function logOut() {
   }
   if (!auth) return
   await signOut(auth)
+}
+
+export async function migrateLocalUsersToFirebase() {
+  if (isUsingLocalAuth()) {
+    throw new Error('ჯერ Firebase დააყენე (npm run setup:firebase)')
+  }
+
+  const users = getLocalCustomUsers()
+  const results = []
+
+  for (const [email, data] of Object.entries(users)) {
+    try {
+      await adminCreateUser({
+        email,
+        password: data.password,
+        displayName: data.displayName,
+        role: data.role,
+        modelId: data.modelId,
+      })
+      results.push({ email, ok: true })
+    } catch (err) {
+      results.push({
+        email,
+        ok: false,
+        error: err.code === 'auth/email-already-in-use' ? 'უკვე არსებობს' : err.message,
+      })
+    }
+  }
+
+  return results
 }
 
 export function subscribeToAuth(callback) {

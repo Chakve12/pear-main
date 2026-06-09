@@ -98,6 +98,23 @@ export function subscribeLocalAuth(callback) {
   return () => {}
 }
 
+export function getLocalCustomUsers() {
+  const users = loadUsers()
+  const custom = {}
+  for (const [email, data] of Object.entries(users)) {
+    if (!DEFAULT_USERS[email]) custom[email] = data
+  }
+  return custom
+}
+
+export function hasLocalCustomUsers() {
+  return Object.keys(getLocalCustomUsers()).length > 0
+}
+
+export function getLocalCustomUserCount() {
+  return Object.keys(getLocalCustomUsers()).length
+}
+
 export function getLocalUserProfiles() {
   const users = loadUsers()
   const profiles = {}

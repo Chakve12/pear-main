@@ -4,8 +4,7 @@ import { motion } from 'framer-motion'
 import { Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Button from '../components/ui/Button'
-import { signIn } from '../services/firebaseAuth'
-import { isConfigured } from '../services/firebaseConfig'
+import { signIn, isUsingLocalAuth } from '../services/firebaseAuth'
 import { useUserStore } from '../store/useUserStore'
 import brandBg from '../assets/pear-brand.png'
 
@@ -19,9 +18,6 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!isConfigured) {
-      /* local mode works without firebase config */
-    }
     setLoading(true)
     try {
       const profile = await signIn(email, password)
@@ -30,10 +26,12 @@ export default function Login() {
       toast.success(`კეთილი იყოს დაბრუნება${profile.displayName ? `, ${profile.displayName}` : ''}`)
       navigate('/dashboard')
     } catch (err) {
-      const msg =
+      const invalidCreds =
         err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password'
-          ? 'ელფოსტა ან პაროლი არასწორია'
-          : err.message || 'შესვლა ვერ მოხერხდა'
+      let msg = invalidCreds ? 'ელფოსტა ან პაროლი არასწორია' : err.message || 'შესვლა ვერ მოხერხდა'
+      if (invalidCreds && isUsingLocalAuth()) {
+        msg = 'ელფოსტა ან პაროლი არასწორია. თუ ანგარიში ადმინმა სხვა მოწყობილობაზე შექმნა, Firebase უნდა იყოს ჩართული.'
+      }
       toast.error(msg)
     } finally {
       setLoading(false)

@@ -31,6 +31,7 @@ import ModelAvatar from '../components/ui/ModelAvatar'
 
 import CreateUserForm from '../components/admin/CreateUserForm'
 import AdminAccountsList from '../components/admin/AdminAccountsList'
+import CloudAuthBanner from '../components/admin/CloudAuthBanner'
 import { isAdminRole } from '../utils/roles'
 
 
@@ -260,6 +261,8 @@ export default function Admin() {
         {activeTab === 'users' && (
 
           <FadeInItem>
+
+            <CloudAuthBanner />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 

@@ -3,7 +3,7 @@ import { UserPlus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
-import { adminCreateUser } from '../../services/firebaseAuth'
+import { adminCreateUser, isUsingLocalAuth } from '../../services/firebaseAuth'
 import { saveModel } from '../../services/modelsService'
 import { useUserStore, slugifyModelId } from '../../store/useUserStore'
 
@@ -68,11 +68,19 @@ export default function CreateUserForm() {
       })
 
       logActivity(`შეიქმნა ანგარიში: ${user.displayName || user.email}`, 'ადმინი')
+      const localOnly = isUsingLocalAuth()
       toast.success(
         role === 'model'
           ? `ანგარიში და მოდელი შეიქმნა — ${displayName}`
-          : `ადმინის ანგარიში შეიქმნა — ${user.email}`
+          : `ადმინის ანგარიში შეიქმნა — ${user.email}`,
+        { duration: localOnly ? 8000 : 4000 }
       )
+      if (localOnly) {
+        toast(
+          'ლოკალური რეჟიმი: ეს ანგარიში მხოლოდ ამ ბრაუზერში მუშაობს. სხვებისთვის Firebase დააყენე.',
+          { icon: '⚠️', duration: 10000 }
+        )
+      }
 
       setEmail('')
       setPassword('')
@@ -97,7 +105,9 @@ export default function CreateUserForm() {
         ახალი ანგარიშის შექმნა
       </h3>
       <p className="text-sm text-[var(--text-muted)] mb-5">
-        მოდელის ანგარიში ავტომატურად დაემატება მოდელების სექციაში
+        {isUsingLocalAuth()
+          ? 'ლოკალური რეჟიმი — ანგარიში მხოლოდ ამ ბრაუზერში იმუშავებს. სხვებისთვის ჩართე Firebase.'
+          : 'მოდელის ანგარიში ავტომატურად დაემატება მოდელების სექციაში და ყველას შეძლებს შესვლას.'}
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">

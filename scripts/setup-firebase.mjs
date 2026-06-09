@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
-const projectId = process.env.FIREBASE_PROJECT_ID || 'pear-elite-platform'
+const projectId = process.env.FIREBASE_PROJECT_ID || 'sonsofpear-8b91f'
 const fb = (cmd) => execSync(`npx -y firebase-tools@latest ${cmd}`, { cwd: root, stdio: 'pipe', encoding: 'utf8' })
 
 function log(msg) {
