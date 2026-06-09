@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAnyAdmin() {
+      return isSignedIn() && userRole() in ['admin', 'head_admin'];
+    }
+
+    function isHeadAdmin() {
+      return isSignedIn() && userRole() == 'head_admin';
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isModelOwner(modelId) {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.modelId == modelId;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isAnyAdmin() || isOwner(userId);
+      allow update: if isAnyAdmin() || isOwner(userId);
+      allow delete: if isOwner(userId)
+        || (isHeadAdmin()
+          && userId != request.auth.uid
+          && get(/databases/$(database)/documents/users/$(userId)).data.role == 'admin');
+    }
+
+    match /models/{modelId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isAnyAdmin();
+      allow update: if isAnyAdmin() || (
+        isModelOwner(modelId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['avatar', 'updatedAt'])
+      );
+    }
+
+    match /chatMessages/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.senderUid == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 2000
+        && request.resource.data.senderName is string
+        && request.resource.data.senderRole in ['admin', 'head_admin', 'model']
+        && (!('senderAvatar' in request.resource.data) || request.resource.data.senderAvatar == null || request.resource.data.senderAvatar is string)
+        && (!('senderModelId' in request.resource.data) || request.resource.data.senderModelId == null || request.resource.data.senderModelId is string)
+        && (!('senderEmail' in request.resource.data) || request.resource.data.senderEmail == null || request.resource.data.senderEmail is string);
+      allow update: if false;
+      allow delete: if isAnyAdmin()
+        || (isSignedIn() && resource.data.senderUid == request.auth.uid);
+    }
+  }
+}
