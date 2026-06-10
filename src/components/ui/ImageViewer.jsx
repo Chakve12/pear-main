@@ -1,13 +1,22 @@
 import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { ZoomIn, ZoomOut, X, Download } from 'lucide-react'
+import { ZoomIn, ZoomOut, X, Download, Trash2 } from 'lucide-react'
 import Modal from './Modal'
 import Button from './Button'
 import { downloadImage } from '../../services/storage'
+import toast from 'react-hot-toast'
 
-export default function ImageViewer({ image, isOpen, onClose, showDownload = false }) {
+export default function ImageViewer({ 
+  image, 
+  isOpen, 
+  onClose, 
+  showDownload = false, 
+  canDelete = false,
+  onDelete = null 
+}) {
   const [scale, setScale] = useState(1)
   const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [deleting, setDeleting] = useState(false)
   const dragging = useRef(false)
   const lastPos = useRef({ x: 0, y: 0 })
 
@@ -42,6 +51,22 @@ export default function ImageViewer({ image, isOpen, onClose, showDownload = fal
     setPosition({ x: 0, y: 0 })
   }
 
+  const handleDelete = async () => {
+    if (!window.confirm('დაზღვეულია? ეს ფოტო სამუდამოდ წაიშლება')) return
+    
+    setDeleting(true)
+    try {
+      if (onDelete) {
+        await onDelete(image)
+      }
+      toast.success('ფოტო წაიშალა')
+      onClose()
+    } catch (error) {
+      toast.error(error.message || 'წაშლა ვერ მოხერხდა')
+      setDeleting(false)
+    }
+  }
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="full">
       <div className="relative -m-6">
@@ -57,7 +82,17 @@ export default function ImageViewer({ image, isOpen, onClose, showDownload = fal
               <Download size={16} />
             </Button>
           )}
-          <Button variant="secondary" onClick={onClose}>
+          {canDelete && (
+            <Button 
+              variant="secondary" 
+              onClick={handleDelete}
+              disabled={deleting}
+              style={{ color: deleting ? 'var(--text-muted)' : '#ef4444' }}
+            >
+              <Trash2 size={16} />
+            </Button>
+          )}
+          <Button variant="secondary" onClick={onClose} disabled={deleting}>
             <X size={16} />
           </Button>
         </div>

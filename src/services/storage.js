@@ -145,3 +145,15 @@ export async function downloadBulk(images) {
     await new Promise((r) => setTimeout(r, 300))
   }
 }
+
+export async function deleteImageWithPermissions(imagePath, imageModelId, userRole, userModelId) {
+  // Check permissions: admins can delete any image, models can only delete their own
+  const isAdmin = userRole === 'admin' || userRole === 'head_admin'
+  const isOwner = userModelId === imageModelId
+
+  if (!isAdmin && !isOwner) {
+    throw new Error('ამ ფოტოს წაშლის უფლება არ გაქვთ')
+  }
+
+  await deleteImage(imagePath)
+}

@@ -14,7 +14,7 @@ import BeforeAfterSlider from '../components/ui/BeforeAfterSlider'
 import { SkeletonCard } from '../components/ui/Loader'
 import { useUserStore } from '../store/useUserStore'
 import { isAdminRole } from '../utils/roles'
-import { uploadImage, getModelImages } from '../services/storage'
+import { uploadImage, getModelImages, deleteImageWithPermissions } from '../services/storage'
 import { adjustModelPoints } from '../services/pointsService'
 import { logActivityEntry } from '../services/activityService'
 import { isUsingLocalAuth } from '../services/authService'
@@ -86,6 +86,22 @@ export default function ModelProfile() {
     } finally {
       setUploading(false)
       setProgress(0)
+    }
+  }
+
+  const handleDelete = async (image) => {
+    try {
+      await deleteImageWithPermissions(image.path, image.modelId, role, modelId)
+      setUploaded((prev) => prev.filter((img) => img.id !== image.id))
+      setEdited((prev) => prev.filter((img) => img.id !== image.id))
+      const activityText = `ფოტო წაიშალა — ${model.name}`
+      if (isUsingLocalAuth()) {
+        logActivity(activityText, model.name)
+      } else {
+        await logActivityEntry(activityText, model.name)
+      }
+    } catch (error) {
+      throw error
     }
   }
 
@@ -254,6 +270,8 @@ export default function ModelProfile() {
         isOpen={!!viewerImage}
         onClose={() => setViewerImage(null)}
         showDownload={isAdminRole(role)}
+        canDelete={canUpload}
+        onDelete={handleDelete}
       />
     </PageTransition>
   )
