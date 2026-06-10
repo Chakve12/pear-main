@@ -1,24 +1,19 @@
 import { supabase } from './supabaseClient'
 import { isConfigured } from './supabaseConfig'
 
-const LOCAL_KEY = 'pear_chat_messages'
 const MAX_MESSAGES = 200
 const MAX_TEXT_LENGTH = 2000
 
+let localMessages = []
 const localListeners = new Set()
 
 function getLocalMessages() {
-  try {
-    const raw = localStorage.getItem(LOCAL_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+  return localMessages
 }
 
 function saveLocalMessages(messages) {
-  localStorage.setItem(LOCAL_KEY, JSON.stringify(messages.slice(-MAX_MESSAGES)))
-  localListeners.forEach((fn) => fn(getLocalMessages()))
+  localMessages = messages.slice(-MAX_MESSAGES)
+  localListeners.forEach((fn) => fn(localMessages))
 }
 
 function rowToMessage(row) {
@@ -35,20 +30,19 @@ function rowToMessage(row) {
   }
 }
 
+export function sortMessagesChronologically(messages) {
+  return [...messages].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  )
+}
+
 export function subscribeToMessages(callback) {
   if (!isConfigured || !supabase) {
-    callback(getLocalMessages())
-    const interval = setInterval(() => callback(getLocalMessages()), 1500)
-    const listener = (messages) => callback(messages)
+    callback(sortMessagesChronologically(getLocalMessages()))
+    const listener = (messages) => callback(sortMessagesChronologically(messages))
     localListeners.add(listener)
-    const onStorage = (e) => {
-      if (e.key === LOCAL_KEY) callback(getLocalMessages())
-    }
-    window.addEventListener('storage', onStorage)
     return () => {
-      clearInterval(interval)
       localListeners.delete(listener)
-      window.removeEventListener('storage', onStorage)
     }
   }
 
@@ -63,7 +57,7 @@ export function subscribeToMessages(callback) {
       callback([])
       return
     }
-    callback((data || []).map(rowToMessage))
+    callback(sortMessagesChronologically((data || []).map(rowToMessage)))
   }
 
   refresh()
@@ -102,14 +96,17 @@ export async function sendMessage({
     sender_avatar: senderAvatar || null,
     sender_model_id: senderModelId || null,
     sender_email: senderEmail || null,
-    created_at: new Date().toISOString(),
   }
 
   if (!isConfigured || !supabase) {
     const id = `local_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-    const stored = [...getLocalMessages(), { id, ...rowToMessage({ id, ...message }) }]
+    const createdAt = new Date().toISOString()
+    const stored = [
+      ...getLocalMessages(),
+      rowToMessage({ id, created_at: createdAt, ...message }),
+    ]
     saveLocalMessages(stored)
-    return rowToMessage({ id, ...message })
+    return rowToMessage({ id, created_at: createdAt, ...message })
   }
 
   const { data, error } = await supabase

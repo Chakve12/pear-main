@@ -5,6 +5,7 @@ import Card from '../ui/Card'
 import ModelAvatar from '../ui/ModelAvatar'
 import { useUserStore } from '../../store/useUserStore'
 import { deleteAccount } from '../../services/usersService'
+import { deleteModel } from '../../services/modelsService'
 import { isUsingLocalAuth } from '../../services/authService'
 import { isHeadAdmin, roleLabel } from '../../utils/roles'
 
@@ -17,7 +18,7 @@ function roleIcon(role) {
 }
 
 export default function AdminAccountsList() {
-  const { user, role, userProfiles, profilesLoaded } = useUserStore()
+  const { user, role, userProfiles, profilesLoaded, removeModel } = useUserStore()
   const [deletingUid, setDeletingUid] = useState(null)
   const isLive = !isUsingLocalAuth()
 
@@ -51,6 +52,14 @@ export default function AdminAccountsList() {
         requesterUid: user.uid,
         requesterRole: role,
       })
+      if (account.modelId) {
+        try {
+          await deleteModel(account.modelId)
+        } catch {
+          /* RPC/edge function may have already removed the model row */
+        }
+        removeModel(account.modelId)
+      }
       toast.success('ანგარიში წაიშალა')
     } catch (err) {
       toast.error(err.message || 'წაშლა ვერ მოხერხდა')

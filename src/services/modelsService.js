@@ -3,8 +3,6 @@ import { isConfigured } from './supabaseConfig'
 import { useUserStore } from '../store/useUserStore'
 import { ensureModelPoints, deleteModelPoints } from './pointsService'
 
-const STORE_KEY = 'pear-elite-store-v2'
-
 function rowToModel(row) {
   return {
     id: row.id,
@@ -57,29 +55,10 @@ export async function deleteModel(modelId) {
 /** @deprecated use deleteModel */
 export const deleteModelFromFirestore = deleteModel
 
-function readLocalPersistedModels() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY)
-    if (!raw) return useUserStore.getState().models
-    const parsed = JSON.parse(raw)
-    return parsed?.state?.models || useUserStore.getState().models
-  } catch {
-    return useUserStore.getState().models
-  }
-}
-
 export function subscribeToModels(callback) {
   if (!isConfigured || !supabase) {
-    callback(readLocalPersistedModels())
-    const onStorage = (e) => {
-      if (e.key === STORE_KEY) callback(readLocalPersistedModels())
-    }
-    window.addEventListener('storage', onStorage)
-    const interval = setInterval(() => callback(readLocalPersistedModels()), 2000)
-    return () => {
-      window.removeEventListener('storage', onStorage)
-      clearInterval(interval)
-    }
+    callback(useUserStore.getState().models)
+    return () => {}
   }
 
   const refresh = async () => {

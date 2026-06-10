@@ -2,19 +2,15 @@ import { supabase } from './supabaseClient'
 import { isConfigured } from './supabaseConfig'
 
 const BUCKET = 'pear-images'
-const LOCAL_STORAGE_KEY = 'pear_images'
+
+let localImages = []
 
 function getLocalImages() {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+  return localImages
 }
 
 function saveLocalImages(images) {
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(images))
+  localImages = images
 }
 
 function fileToDataUrl(file) {

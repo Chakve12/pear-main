@@ -7,7 +7,13 @@ import { FadeInContainer, FadeInItem } from '../components/animations/FadeIn'
 import ModelAvatar from '../components/ui/ModelAvatar'
 import { useUserStore } from '../store/useUserStore'
 import { buildAvatarLookup, getProfileAvatar, resolveSenderAvatar } from '../services/avatarService'
-import { deleteAllMessages, deleteMessage, sendMessage, subscribeToMessages } from '../services/chatService'
+import {
+  deleteAllMessages,
+  deleteMessage,
+  sendMessage,
+  sortMessagesChronologically,
+  subscribeToMessages,
+} from '../services/chatService'
 import { isAdminBadgeRole, isAdminRole } from '../utils/roles'
 
 function formatTime(iso) {
@@ -62,6 +68,11 @@ export default function Chat() {
     [models, userProfiles]
   )
 
+  const sortedMessages = useMemo(
+    () => sortMessagesChronologically(messages),
+    [messages]
+  )
+
   useEffect(() => {
     return subscribeToMessages((msgs) => {
       setMessages(msgs)
@@ -71,7 +82,7 @@ export default function Chat() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [sortedMessages])
 
   const handleSend = async (e) => {
     e.preventDefault()
@@ -135,7 +146,7 @@ export default function Chat() {
   }
 
   let lastDate = null
-  const participantCount = new Set(messages.map((m) => m.senderUid)).size
+  const participantCount = new Set(sortedMessages.map((m) => m.senderUid)).size
 
   return (
     <PageTransition>
@@ -159,7 +170,7 @@ export default function Chat() {
             >
               <Users size={16} className="text-[var(--accent)]" />
               <span className="text-[var(--text-muted)]">
-                {messages.length > 0 ? `${participantCount} მონაწილე` : 'დაიწყე საუბარი'}
+                {sortedMessages.length > 0 ? `${participantCount} მონაწილე` : 'დაიწყე საუბარი'}
               </span>
             </div>
           </div>
@@ -200,7 +211,7 @@ export default function Chat() {
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-[11px] text-[var(--text-muted)] hidden sm:inline">აქტიური</span>
-                {isAdminRole(role) && messages.length > 0 && (
+                {isAdminRole(role) && sortedMessages.length > 0 && (
                   <button
                     type="button"
                     onClick={handleClearChat}
@@ -228,7 +239,7 @@ export default function Chat() {
                   <div className="w-8 h-8 rounded-full border-2 border-[var(--accent)] border-t-transparent animate-spin" />
                   <p className="text-sm text-[var(--text-muted)]">იტვირთება...</p>
                 </div>
-              ) : messages.length === 0 ? (
+              ) : sortedMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center px-6">
                   <div
                     className="w-16 h-16 rounded-3xl flex items-center justify-center mb-4"
@@ -242,7 +253,7 @@ export default function Chat() {
                   </p>
                 </div>
               ) : (
-                messages.map((msg) => {
+                sortedMessages.map((msg) => {
                   const isOwn = msg.senderUid === user?.uid
                   const msgDate = formatDate(msg.createdAt)
                   const showDate = msgDate !== lastDate
@@ -270,7 +281,7 @@ export default function Chat() {
                         animate={{ opacity: 1, y: 0 }}
                         className={`flex gap-2.5 mb-4 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}
                       >
-                        <div className="w-8 shrink-0 self-start mt-6">
+                        <div className="w-8 shrink-0 self-end mb-1">
                           <ModelAvatar
                             src={avatar}
                             name={msg.senderName}

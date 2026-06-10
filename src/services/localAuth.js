@@ -1,6 +1,3 @@
-const USERS_KEY = 'pear_local_users'
-const SESSION_KEY = 'pear_local_session'
-
 export const DEFAULT_USERS = {
   'admin@pear.elite': {
     password: 'PearElite2024!',
@@ -10,39 +7,30 @@ export const DEFAULT_USERS = {
   },
 }
 
+let customUsers = {}
+let sessionProfile = null
+
 function loadUsers() {
-  try {
-    const raw = localStorage.getItem(USERS_KEY)
-    if (raw) return { ...DEFAULT_USERS, ...JSON.parse(raw) }
-  } catch {
-    /* ignore */
-  }
-  return { ...DEFAULT_USERS }
+  return { ...DEFAULT_USERS, ...customUsers }
 }
 
 function saveUsers(users) {
-  const custom = {}
+  customUsers = {}
   for (const [email, data] of Object.entries(users)) {
-    if (!DEFAULT_USERS[email]) custom[email] = data
+    if (!DEFAULT_USERS[email]) customUsers[email] = data
   }
-  localStorage.setItem(USERS_KEY, JSON.stringify(custom))
 }
 
 function getSession() {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
+  return sessionProfile
 }
 
 function setSession(profile) {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(profile))
+  sessionProfile = profile
 }
 
 function clearSession() {
-  localStorage.removeItem(SESSION_KEY)
+  sessionProfile = null
 }
 
 export async function localSignIn(email, password) {
@@ -99,20 +87,15 @@ export function subscribeLocalAuth(callback) {
 }
 
 export function getLocalCustomUsers() {
-  const users = loadUsers()
-  const custom = {}
-  for (const [email, data] of Object.entries(users)) {
-    if (!DEFAULT_USERS[email]) custom[email] = data
-  }
-  return custom
+  return { ...customUsers }
 }
 
 export function hasLocalCustomUsers() {
-  return Object.keys(getLocalCustomUsers()).length > 0
+  return Object.keys(customUsers).length > 0
 }
 
 export function getLocalCustomUserCount() {
-  return Object.keys(getLocalCustomUsers()).length
+  return Object.keys(customUsers).length
 }
 
 export function getLocalUserProfiles() {

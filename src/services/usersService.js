@@ -3,8 +3,6 @@ import { isConfigured } from './supabaseConfig'
 import { isHeadAdmin, normalizeRole } from '../utils/roles'
 import { getLocalUserProfiles, localDeleteAccount } from './localAuth'
 
-const LOCAL_USERS_KEY = 'pear_local_users'
-
 function rowToProfile(row) {
   return {
     uid: row.id,
@@ -34,15 +32,7 @@ export async function fetchAllProfiles() {
 export function subscribeToUserProfiles(callback) {
   if (!isConfigured || !supabase) {
     callback(getLocalUserProfiles())
-    const onStorage = (e) => {
-      if (e.key === LOCAL_USERS_KEY) callback(getLocalUserProfiles())
-    }
-    window.addEventListener('storage', onStorage)
-    const interval = setInterval(() => callback(getLocalUserProfiles()), 2000)
-    return () => {
-      window.removeEventListener('storage', onStorage)
-      clearInterval(interval)
-    }
+    return () => {}
   }
 
   let active = true
