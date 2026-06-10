@@ -15,6 +15,7 @@ export default function Button({
   loading = false,
   disabled = false,
   style,
+  type = 'button',
   ...props
 }) {
   const variantStyle =
@@ -27,8 +28,7 @@ export default function Button({
           : style
 
   return (
-    <motion.button
-      whileHover={!disabled && !loading ? { scale: 1.01 } : {}}
+    <motion.button      type={type}      whileHover={!disabled && !loading ? { scale: 1.01 } : {}}
       whileTap={!disabled && !loading ? { scale: 0.99 } : {}}
       disabled={disabled || loading}
       style={variantStyle}

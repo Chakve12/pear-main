@@ -70,21 +70,25 @@ export default function ImageViewer({
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="full">
       <div className="relative -m-6">
-        <div className="absolute top-4 right-4 z-10 flex gap-2">
-          <Button variant="secondary" onClick={() => setScale((s) => Math.min(4, s + 0.5))}>
+        <div
+          className="absolute top-4 right-4 z-20 flex gap-2 pointer-events-auto"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <Button type="button" variant="secondary" onClick={() => setScale((s) => Math.min(4, s + 0.5))}>
             <ZoomIn size={16} />
           </Button>
-          <Button variant="secondary" onClick={() => setScale((s) => Math.max(0.5, s - 0.5))}>
+          <Button type="button" variant="secondary" onClick={() => setScale((s) => Math.max(0.5, s - 0.5))}>
             <ZoomOut size={16} />
           </Button>
           {showDownload && (
-            <Button variant="secondary" onClick={() => downloadImage(image.url, image.name)}>
+            <Button type="button" variant="secondary" onClick={() => downloadImage(image.url, image.name)}>
               <Download size={16} />
             </Button>
           )}
           {canDelete && (
-            <Button 
-              variant="secondary" 
+            <Button
+              type="button"
+              variant="secondary"
               onClick={handleDelete}
               disabled={deleting}
               style={{ color: deleting ? 'var(--text-muted)' : '#ef4444' }}
@@ -92,7 +96,7 @@ export default function ImageViewer({
               <Trash2 size={16} />
             </Button>
           )}
-          <Button variant="secondary" onClick={onClose} disabled={deleting}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={deleting}>
             <X size={16} />
           </Button>
         </div>
@@ -100,11 +104,12 @@ export default function ImageViewer({
         <div
           className="h-[80vh] flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing"
           onWheel={handleWheel}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
+          onPointerDown={handleMouseDown}
+          onPointerMove={handleMouseMove}
+          onPointerUp={handleMouseUp}
+          onPointerLeave={handleMouseUp}
           onDoubleClick={resetView}
+          style={{ touchAction: 'none' }}
         >
           <motion.img
             src={image.url}
@@ -118,6 +123,37 @@ export default function ImageViewer({
             draggable={false}
             loading="lazy"
           />
+        </div>
+
+        <div
+          className="fixed bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2 rounded-full bg-[rgba(15,23,42,0.9)] px-3 py-2 shadow-2xl shadow-black/40 backdrop-blur-lg sm:hidden pointer-events-auto"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <Button type="button" variant="secondary" onClick={() => setScale((s) => Math.min(4, s + 0.5))}>
+            <ZoomIn size={16} />
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => setScale((s) => Math.max(0.5, s - 0.5))}>
+            <ZoomOut size={16} />
+          </Button>
+          {showDownload && (
+            <Button type="button" variant="secondary" onClick={() => downloadImage(image.url, image.name)}>
+              <Download size={16} />
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleDelete}
+              disabled={deleting}
+              style={{ color: deleting ? 'var(--text-muted)' : '#ef4444' }}
+            >
+              <Trash2 size={16} />
+            </Button>
+          )}
+          <Button type="button" variant="secondary" onClick={onClose} disabled={deleting}>
+            <X size={16} />
+          </Button>
         </div>
       </div>
     </Modal>
