@@ -27,12 +27,20 @@ import { useUserStore } from '../store/useUserStore'
 import { getModelImages, downloadBulk } from '../services/storage'
 
 import { deleteModelFromFirestore, saveModel } from '../services/modelsService'
+import { deleteAccount } from '../services/usersService'
+import { adjustModelPoints, setModelPoints as saveModelPoints } from '../services/pointsService'
+import {
+  createAnnouncement,
+  toggleAnnouncementPin,
+  deleteAnnouncement as removeAnnouncement,
+} from '../services/announcementsService'
 import ModelAvatar from '../components/ui/ModelAvatar'
 
 import CreateUserForm from '../components/admin/CreateUserForm'
 import AdminAccountsList from '../components/admin/AdminAccountsList'
 import CloudAuthBanner from '../components/admin/CloudAuthBanner'
-import { isAdminRole } from '../utils/roles'
+import { isAdminRole, isHeadAdmin } from '../utils/roles'
+import { isUsingLocalAuth } from '../services/authService'
 
 
 
@@ -110,7 +118,7 @@ export default function Admin() {
 
 
 
-  const handleAddAnnouncement = () => {
+  const handleAddAnnouncement = async () => {
 
     if (!annTitle.trim() || !annContent.trim()) {
 
@@ -120,15 +128,27 @@ export default function Admin() {
 
     }
 
-    addAnnouncement({ title: annTitle, content: annContent, pinned: annPinned })
+    try {
 
-    toast.success('განცხადება გამოქვეყნდა!')
+      if (isUsingLocalAuth()) {
+        addAnnouncement({ title: annTitle, content: annContent, pinned: annPinned })
+      } else {
+        await createAnnouncement({ title: annTitle.trim(), content: annContent.trim(), pinned: annPinned })
+      }
 
-    setAnnTitle('')
+      toast.success('განცხადება გამოქვეყნდა!')
 
-    setAnnContent('')
+      setAnnTitle('')
 
-    setAnnPinned(false)
+      setAnnContent('')
+
+      setAnnPinned(false)
+
+    } catch {
+
+      toast.error('განცხადების გამოქვეყნება ვერ მოხერხდა')
+
+    }
 
   }
 
@@ -156,21 +176,32 @@ export default function Admin() {
 
     if (!model) return
 
-    if (!window.confirm(`წავშალოთ მოდელი "${model.name}"?`)) return
+    if (!window.confirm(`წავშალოთ მოდელი "${model.name}" და მისი ანგარიში?`)) return
 
     try {
 
-      await deleteModelFromFirestore(modelId)
+      const profiles = useUserStore.getState().userProfiles
+      const linked = Object.values(profiles).find((p) => p.modelId === modelId)
+
+      if (linked && isHeadAdmin(role)) {
+        await deleteAccount({
+          targetUid: linked.uid,
+          requesterUid: useUserStore.getState().user.uid,
+          requesterRole: role,
+        })
+      } else {
+        await deleteModelFromFirestore(modelId)
+      }
 
       removeModel(modelId)
 
       if (selectedModel === modelId) setSelectedModel(models.find((m) => m.id !== modelId)?.id || '')
 
-      toast.success('მოდელი წაიშალა')
+      toast.success('მოდელი და ანგარიში წაიშალა')
 
-    } catch {
+    } catch (err) {
 
-      toast.error('წაშლა ვერ მოხერხდა')
+      toast.error(err.message || 'წაშლა ვერ მოხერხდა')
 
     }
 
@@ -374,11 +405,23 @@ export default function Admin() {
 
                     disabled={!selectedModel}
 
-                    onClick={() => {
+                    onClick={async () => {
 
-                      addPoints(selectedModel, 10)
+                      try {
 
-                      toast.success('+10 ქულა')
+                        if (isUsingLocalAuth()) {
+                          addPoints(selectedModel, 10)
+                        } else {
+                          await adjustModelPoints(selectedModel, 10)
+                        }
+
+                        toast.success('+10 ქულა')
+
+                      } catch {
+
+                        toast.error('ქულის განახლება ვერ მოხერხდა')
+
+                      }
 
                     }}
 
@@ -394,11 +437,23 @@ export default function Admin() {
 
                     disabled={!selectedModel}
 
-                    onClick={() => {
+                    onClick={async () => {
 
-                      addPoints(selectedModel, -10)
+                      try {
 
-                      toast.success('-10 ქულა')
+                        if (isUsingLocalAuth()) {
+                          addPoints(selectedModel, -10)
+                        } else {
+                          await adjustModelPoints(selectedModel, -10)
+                        }
+
+                        toast.success('-10 ქულა')
+
+                      } catch {
+
+                        toast.error('ქულის განახლება ვერ მოხერხდა')
+
+                      }
 
                     }}
 
@@ -432,17 +487,29 @@ export default function Admin() {
 
                     disabled={!selectedModel}
 
-                    onClick={() => {
+                    onClick={async () => {
 
                       const val = parseInt(customPoints, 10)
 
                       if (isNaN(val)) return toast.error('შეიყვანე რიცხვი')
 
-                      setPoints(selectedModel, val)
+                      try {
 
-                      toast.success(`ქულა დაყენდა: ${val}`)
+                        if (isUsingLocalAuth()) {
+                          setPoints(selectedModel, val)
+                        } else {
+                          await saveModelPoints(selectedModel, val)
+                        }
 
-                      setCustomPoints('')
+                        toast.success(`ქულა დაყენდა: ${val}`)
+
+                        setCustomPoints('')
+
+                      } catch {
+
+                        toast.error('ქულის განახლება ვერ მოხერხდა')
+
+                      }
 
                     }}
 
@@ -614,11 +681,23 @@ export default function Admin() {
 
                         <button
 
-                          onClick={() => {
+                          onClick={async () => {
 
-                            togglePinAnnouncement(ann.id)
+                            try {
 
-                            toast.success(ann.pinned ? 'მოხსნილია' : 'მიმაგრებულია')
+                              if (isUsingLocalAuth()) {
+                                togglePinAnnouncement(ann.id)
+                              } else {
+                                await toggleAnnouncementPin(ann.id, !ann.pinned)
+                              }
+
+                              toast.success(ann.pinned ? 'მოხსნილია' : 'მიმაგრებულია')
+
+                            } catch {
+
+                              toast.error('განახლება ვერ მოხერხდა')
+
+                            }
 
                           }}
 
@@ -636,11 +715,23 @@ export default function Admin() {
 
                         <button
 
-                          onClick={() => {
+                          onClick={async () => {
 
-                            deleteAnnouncement(ann.id)
+                            try {
 
-                            toast.success('წაიშალა')
+                              if (isUsingLocalAuth()) {
+                                deleteAnnouncement(ann.id)
+                              } else {
+                                await removeAnnouncement(ann.id)
+                              }
+
+                              toast.success('წაიშალა')
+
+                            } catch {
+
+                              toast.error('წაშლა ვერ მოხერხდა')
+
+                            }
 
                           }}
 

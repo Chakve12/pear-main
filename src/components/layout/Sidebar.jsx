@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import PearLogo from '../ui/PearLogo'
 import ModelAvatar from '../ui/ModelAvatar'
-import { logOut } from '../../services/firebaseAuth'
+import { logOut } from '../../services/authService'
 import { useUserStore } from '../../store/useUserStore'
 import { isAdminRole } from '../../utils/roles'
 

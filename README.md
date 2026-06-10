@@ -7,8 +7,7 @@ Ultra-premium internal operating system for luxury modeling agencies.
 - **React** (Vite)
 - **TailwindCSS** v4 (custom design system)
 - **Framer Motion** (animations)
-- **Firebase Auth** (authentication)
-- **Firebase Storage** (images)
+- **Supabase** (auth, database, storage)
 - **React Router DOM** (routing)
 - **Zustand** (state + localStorage persistence)
 
@@ -19,37 +18,43 @@ npm install
 npm run dev
 ```
 
-## Firebase Setup
+Open [http://localhost:5173](http://localhost:5173)
 
-1. Copy `.env.example` to `.env`
-2. Add your Firebase project credentials
-3. Enable **Email/Password** auth in Firebase Console
-4. Create a **Storage** bucket with appropriate rules
+## Supabase Setup
 
-Without Firebase config, the app runs in **demo mode** using localStorage.
+1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard)
+2. Copy `.env.example` to `.env` and add your credentials:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+3. Run `supabase/schema.sql` in **SQL Editor**
+4. **Authentication** → Providers → **Email** → Enable
+5. **Authentication** → Providers → Email → **Confirm email** → OFF
+6. Restart: `npm run dev`
+
+Without Supabase config, the app runs in **demo mode** using localStorage.
+
+## Demo Accounts (local mode only)
+
+| Role  | Email              | Password        |
+|-------|--------------------|-----------------|
+| Admin | admin@pear.elite   | PearElite2024!  |
 
 ## Routes
 
 | Path              | Description        |
 |-------------------|--------------------|
 | `/login`          | Sign in            |
-| `/signup`         | Create account     |
 | `/dashboard`      | Main dashboard     |
 | `/models/:id`     | Model profile      |
 | `/admin`          | Admin panel        |
 | `/leaderboard`    | Points ranking     |
 | `/announcements`  | Company feed       |
+| `/chat`           | Team chat          |
 
 ## Deploy
 
-### Vercel
 ```bash
 npm run build
-# vercel.json included for SPA routing
 ```
 
-### Netlify
-```bash
-npm run build
-# public/_redirects included for SPA routing
-```
+Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as environment variables on your host.

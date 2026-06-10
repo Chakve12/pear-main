@@ -15,14 +15,18 @@ import { SkeletonCard } from '../components/ui/Loader'
 import { useUserStore } from '../store/useUserStore'
 import { isAdminRole } from '../utils/roles'
 import { uploadImage, getModelImages } from '../services/storage'
+import { adjustModelPoints } from '../services/pointsService'
+import { logActivityEntry } from '../services/activityService'
+import { isUsingLocalAuth } from '../services/authService'
 
 export default function ModelProfile() {
   const { id } = useParams()
   const model = useUserStore((s) => s.models.find((m) => m.id === id))
-  const { role, modelId, addPoints, logActivity, editedPhotos } = useUserStore()
+  const { role, modelId, addPoints, logActivity } = useUserStore()
   const points = useUserStore((s) => s.points[id] || 0)
 
   const [uploaded, setUploaded] = useState([])
+  const [edited, setEdited] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -31,8 +35,6 @@ export default function ModelProfile() {
 
   const isOwnProfile = modelId === id
   const canUpload = isAdminRole(role) || isOwnProfile
-  const edited = editedPhotos[id] || []
-
   useEffect(() => {
     if (!model) return
     loadImages()
@@ -41,7 +43,12 @@ export default function ModelProfile() {
   const loadImages = async () => {
     setLoading(true)
     try {
-      setUploaded(await getModelImages(id, 'uploaded'))
+      const [uploads, edits] = await Promise.all([
+        getModelImages(id, 'uploaded'),
+        getModelImages(id, 'edited'),
+      ])
+      setUploaded(uploads)
+      setEdited(edits)
     } catch {
       toast.error('ფოტოების ჩატვირთვა ვერ მოხერხდა')
     } finally {
@@ -60,10 +67,19 @@ export default function ModelProfile() {
         setUploaded((prev) => [image, ...prev])
       }
       if (role === 'model') {
-        addPoints(id, 10)
+        if (isUsingLocalAuth()) {
+          addPoints(id, 10)
+        } else {
+          await adjustModelPoints(id, 10)
+        }
         toast.success('+10 ქულა!')
       }
-      logActivity(`${files.length} ფოტო — ${model.name}`, model.name)
+      const activityText = `${files.length} ფოტო — ${model.name}`
+      if (isUsingLocalAuth()) {
+        logActivity(activityText, model.name)
+      } else {
+        await logActivityEntry(activityText, model.name)
+      }
       toast.success('ატვირთვა დასრულდა!')
     } catch {
       toast.error('ატვირთვა ვერ მოხერხდა')
@@ -214,7 +230,11 @@ export default function ModelProfile() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {(edited.length > 0
-                  ? edited
+                  ? edited.map((img) => ({
+                      before: uploaded[0]?.url || img.url,
+                      after: img.url,
+                      label: 'რედაქტორიული',
+                    }))
                   : uploaded.slice(0, 2).map((img, i) => ({
                       before: img.url,
                       after: uploaded[(i + 1) % uploaded.length]?.url || img.url,

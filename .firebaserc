@@ -1,5 +1,7 @@
 {
   "projects": {
     "default": "sonsofpear-8b91f"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }

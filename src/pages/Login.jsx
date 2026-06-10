@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Button from '../components/ui/Button'
-import { signIn, isUsingLocalAuth } from '../services/firebaseAuth'
+import { signIn, isUsingLocalAuth } from '../services/authService'
 import { useUserStore } from '../store/useUserStore'
 import brandBg from '../assets/pear-brand.png'
 
@@ -30,7 +30,7 @@ export default function Login() {
         err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password'
       let msg = invalidCreds ? 'ელფოსტა ან პაროლი არასწორია' : err.message || 'შესვლა ვერ მოხერხდა'
       if (invalidCreds && isUsingLocalAuth()) {
-        msg = 'ელფოსტა ან პაროლი არასწორია. თუ ანგარიში ადმინმა სხვა მოწყობილობაზე შექმნა, Firebase უნდა იყოს ჩართული.'
+        msg = 'ელფოსტა ან პაროლი არასწორია. თუ ანგარიში ადმინმა სხვა მოწყობილობაზე შექმნა, Supabase უნდა იყოს ჩართული.'
       }
       toast.error(msg)
     } finally {

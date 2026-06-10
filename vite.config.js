@@ -10,7 +10,7 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
           motion: ['framer-motion'],
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/storage', 'firebase/firestore'],
+          supabase: ['@supabase/supabase-js'],
         },
       },
     },

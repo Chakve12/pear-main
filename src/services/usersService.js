@@ -1,12 +1,38 @@
-import { collection, onSnapshot, doc, getDoc, deleteDoc } from 'firebase/firestore'
-import { db, isConfigured } from './firebaseConfig'
+import { supabase } from './supabaseClient'
+import { isConfigured } from './supabaseConfig'
 import { isHeadAdmin, normalizeRole } from '../utils/roles'
-import { getLocalUserProfiles, localDeleteAdminUser } from './localAuth'
+import { getLocalUserProfiles, localDeleteAccount } from './localAuth'
 
 const LOCAL_USERS_KEY = 'pear_local_users'
 
+function rowToProfile(row) {
+  return {
+    uid: row.id,
+    displayName: row.display_name || '',
+    email: row.email || '',
+    role: normalizeRole(row.role, row.email),
+    modelId: row.model_id || null,
+    avatar: row.avatar || null,
+  }
+}
+
+function rowsToProfilesMap(rows) {
+  const profiles = {}
+  for (const row of rows || []) {
+    profiles[row.id] = rowToProfile(row)
+  }
+  return profiles
+}
+
+export async function fetchAllProfiles() {
+  if (!isConfigured || !supabase) return null
+  const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: true })
+  if (error) throw error
+  return rowsToProfilesMap(data)
+}
+
 export function subscribeToUserProfiles(callback) {
-  if (!isConfigured || !db) {
+  if (!isConfigured || !supabase) {
     callback(getLocalUserProfiles())
     const onStorage = (e) => {
       if (e.key === LOCAL_USERS_KEY) callback(getLocalUserProfiles())
@@ -19,48 +45,77 @@ export function subscribeToUserProfiles(callback) {
     }
   }
 
-  return onSnapshot(
-    collection(db, 'users'),
-    (snap) => {
-      const profiles = {}
-      snap.docs.forEach((d) => {
-        const data = d.data()
-        profiles[d.id] = {
-          uid: d.id,
-          displayName: data.displayName || '',
-          email: data.email || '',
-          role: normalizeRole(data.role, data.email),
-          modelId: data.modelId || null,
-          avatar: data.avatar || null,
-        }
-      })
-      callback(profiles)
-    },
-    () => callback({})
-  )
+  let active = true
+
+  const refresh = async () => {
+    try {
+      const profiles = await fetchAllProfiles()
+      if (active && profiles) callback(profiles)
+    } catch {
+      /* keep previous profiles on transient errors */
+    }
+  }
+
+  refresh()
+
+  const channel = supabase
+    .channel('profiles-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, refresh)
+    .subscribe()
+
+  const interval = setInterval(refresh, 10000)
+
+  return () => {
+    active = false
+    clearInterval(interval)
+    supabase.removeChannel(channel)
+  }
 }
 
-export async function deleteAdminAccount({ targetUid, requesterUid, requesterRole }) {
+export async function deleteAccount({ targetUid, requesterUid, requesterRole }) {
   if (!isHeadAdmin(requesterRole)) {
-    throw new Error('მხოლოდ უფროს ადმინს შეუძლია ადმინის წაშლა')
+    throw new Error('მხოლოდ უფროს ადმინს შეუძლია ანგარიშის წაშლა')
   }
   if (targetUid === requesterUid) {
     throw new Error('საკუთარი ანგარიშის წაშლა შეუძლებელია')
   }
 
-  if (!isConfigured || !db) {
-    return localDeleteAdminUser(targetUid)
+  if (!isConfigured || !supabase) {
+    return localDeleteAccount(targetUid)
   }
 
-  const ref = doc(db, 'users', targetUid)
-  const snap = await getDoc(ref)
-  if (!snap.exists()) throw new Error('ანგარიში ვერ მოიძებნა')
+  const { error: rpcError } = await supabase.rpc('delete_account', {
+    target_user_id: targetUid,
+  })
 
-  const data = snap.data()
-  const targetRole = normalizeRole(data.role, data.email)
-  if (targetRole !== 'admin') {
-    throw new Error('მხოლოდ ადმინის ანგარიშის წაშლა შეგიძლია')
+  if (!rpcError) return
+
+  const rpcMissing =
+    rpcError.code === 'PGRST202' ||
+    rpcError.message?.includes('delete_account') ||
+    rpcError.message?.includes('Could not find the function')
+
+  if (rpcMissing) {
+    const { data, error } = await supabase.functions.invoke('delete-user', {
+      body: { userId: targetUid },
+    })
+
+    if (error) {
+      const msg = error.message || ''
+      if (msg.includes('404') || msg.includes('not found') || msg.includes('Function')) {
+        throw new Error(
+          'წაშლა ვერ მოხერხდა. Supabase SQL Editor-ში გაუშვი migration: supabase/migrations/20260610200000_delete_account_rpc.sql'
+        )
+      }
+      throw error
+    }
+
+    if (data?.error) throw new Error(data.error)
+    return
   }
 
-  await deleteDoc(ref)
+  throw new Error(rpcError.message)
 }
+
+/** @deprecated use deleteAccount */
+export const deleteAdminAccount = deleteAccount

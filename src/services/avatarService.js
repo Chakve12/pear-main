@@ -1,6 +1,8 @@
 import { uploadImage } from './storage'
 import { saveModel, saveModelAvatar } from './modelsService'
 import { saveUserAvatar } from './userProfile'
+import { logActivityEntry } from './activityService'
+import { isUsingLocalAuth } from './authService'
 import { useUserStore } from '../store/useUserStore'
 import { isAdminRole } from '../utils/roles'
 
@@ -17,7 +19,12 @@ export async function changeModelAvatar(modelId, file) {
   const updated = { ...model, avatar: url }
   store.updateModel(modelId, { avatar: url })
   await saveModelAvatar(modelId, url)
-  store.logActivity(`პროფილის ფოტო — ${model.name}`, model.name)
+  const activityText = `პროფილის ფოტო — ${model.name}`
+  if (isUsingLocalAuth()) {
+    store.logActivity(activityText, model.name)
+  } else {
+    await logActivityEntry(activityText, model.name)
+  }
   return url
 }
 
@@ -26,7 +33,12 @@ export async function changeUserAvatar(uid, file) {
   const store = useUserStore.getState()
   store.setUserAvatar(url)
   await saveUserAvatar(uid, url)
-  store.logActivity('პროფილის ფოტო განახლდა', store.user?.displayName || 'მომხმარებელი')
+  const userName = store.user?.displayName || 'მომხმარებელი'
+  if (isUsingLocalAuth()) {
+    store.logActivity('პროფილის ფოტო განახლდა', userName)
+  } else {
+    await logActivityEntry('პროფილის ფოტო განახლდა', userName)
+  }
   return url
 }
 

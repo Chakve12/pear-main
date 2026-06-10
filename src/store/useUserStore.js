@@ -44,6 +44,7 @@ export const useUserStore = create(
       modelId: null,
       userAvatar: null,
       userProfiles: {},
+      profilesLoaded: false,
       showSplash: false,
       models: [],
       points: {},
@@ -54,8 +55,9 @@ export const useUserStore = create(
       setUser: (user, role, modelId) =>
         set({ user, role, modelId, userAvatar: user?.avatar || null }),
       setUserAvatar: (avatar) => set({ userAvatar: avatar }),
-      setUserProfiles: (userProfiles) => set({ userProfiles }),
-      clearUser: () => set({ user: null, role: null, modelId: null, userAvatar: null, userProfiles: {} }),
+      setUserProfiles: (userProfiles) => set({ userProfiles, profilesLoaded: true }),
+      clearUser: () =>
+        set({ user: null, role: null, modelId: null, userAvatar: null, userProfiles: {}, profilesLoaded: false }),
       triggerSplash: () => set({ showSplash: true }),
       dismissSplash: () => set({ showSplash: false }),
 
@@ -98,6 +100,23 @@ export const useUserStore = create(
           }
           return { models: merged, points }
         })
+      },
+
+      syncPoints: (remotePoints) => {
+        if (!remotePoints || !Object.keys(remotePoints).length) return
+        set((state) => ({
+          points: { ...state.points, ...remotePoints },
+        }))
+      },
+
+      syncAnnouncements: (remoteAnnouncements) => {
+        if (!remoteAnnouncements?.length) return
+        set({ announcements: remoteAnnouncements })
+      },
+
+      syncActivityLog: (remoteLog) => {
+        if (!remoteLog?.length) return
+        set({ activityLog: remoteLog })
       },
 
       addModel: (model) => {

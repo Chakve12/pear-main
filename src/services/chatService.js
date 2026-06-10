@@ -1,18 +1,6 @@
-import {
-  collection,
-  addDoc,
-  query,
-  orderBy,
-  limit,
-  onSnapshot,
-  deleteDoc,
-  doc,
-  getDocs,
-  writeBatch,
-} from 'firebase/firestore'
-import { db, isConfigured } from './firebaseConfig'
+import { supabase } from './supabaseClient'
+import { isConfigured } from './supabaseConfig'
 
-const COLLECTION = 'chatMessages'
 const LOCAL_KEY = 'pear_chat_messages'
 const MAX_MESSAGES = 200
 const MAX_TEXT_LENGTH = 2000
@@ -33,8 +21,22 @@ function saveLocalMessages(messages) {
   localListeners.forEach((fn) => fn(getLocalMessages()))
 }
 
+function rowToMessage(row) {
+  return {
+    id: row.id,
+    text: row.text,
+    senderUid: row.sender_uid,
+    senderName: row.sender_name,
+    senderRole: row.sender_role,
+    senderAvatar: row.sender_avatar,
+    senderModelId: row.sender_model_id,
+    senderEmail: row.sender_email,
+    createdAt: row.created_at,
+  }
+}
+
 export function subscribeToMessages(callback) {
-  if (!isConfigured || !db) {
+  if (!isConfigured || !supabase) {
     callback(getLocalMessages())
     const interval = setInterval(() => callback(getLocalMessages()), 1500)
     const listener = (messages) => callback(messages)
@@ -50,24 +52,30 @@ export function subscribeToMessages(callback) {
     }
   }
 
-  const q = query(
-    collection(db, COLLECTION),
-    orderBy('createdAt', 'asc'),
-    limit(MAX_MESSAGES)
-  )
+  const refresh = async () => {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .order('created_at', { ascending: true })
+      .limit(MAX_MESSAGES)
 
-  return onSnapshot(
-    q,
-    (snap) => {
-      callback(
-        snap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        }))
-      )
-    },
-    () => callback([])
-  )
+    if (error) {
+      callback([])
+      return
+    }
+    callback((data || []).map(rowToMessage))
+  }
+
+  refresh()
+
+  const channel = supabase
+    .channel('chat-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, refresh)
+    .subscribe()
+
+  return () => {
+    supabase.removeChannel(channel)
+  }
 }
 
 export async function sendMessage({
@@ -87,31 +95,37 @@ export async function sendMessage({
 
   const message = {
     text: trimmed,
-    senderUid,
-    senderName: senderName || 'მომხმარებელი',
-    senderRole:
+    sender_uid: senderUid,
+    sender_name: senderName || 'მომხმარებელი',
+    sender_role:
       senderRole === 'head_admin' ? 'head_admin' : senderRole === 'admin' ? 'admin' : 'model',
-    senderAvatar: senderAvatar || null,
-    senderModelId: senderModelId || null,
-    senderEmail: senderEmail || null,
-    createdAt: new Date().toISOString(),
+    sender_avatar: senderAvatar || null,
+    sender_model_id: senderModelId || null,
+    sender_email: senderEmail || null,
+    created_at: new Date().toISOString(),
   }
 
-  if (!isConfigured || !db) {
+  if (!isConfigured || !supabase) {
     const id = `local_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-    const stored = [...getLocalMessages(), { id, ...message }]
+    const stored = [...getLocalMessages(), { id, ...rowToMessage({ id, ...message }) }]
     saveLocalMessages(stored)
-    return { id, ...message }
+    return rowToMessage({ id, ...message })
   }
 
-  const docRef = await addDoc(collection(db, COLLECTION), message)
-  return { id: docRef.id, ...message }
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .insert(message)
+    .select()
+    .single()
+
+  if (error) throw error
+  return rowToMessage(data)
 }
 
 export async function deleteMessage(messageId, requesterUid) {
   if (!messageId || !requesterUid) throw new Error('შეტყობინება ვერ მოიძებნა')
 
-  if (!isConfigured || !db) {
+  if (!isConfigured || !supabase) {
     const messages = getLocalMessages()
     const target = messages.find((m) => m.id === messageId)
     if (!target) throw new Error('შეტყობინება ვერ მოიძებნა')
@@ -122,22 +136,20 @@ export async function deleteMessage(messageId, requesterUid) {
     return
   }
 
-  await deleteDoc(doc(db, COLLECTION, messageId))
+  const { error } = await supabase.from('chat_messages').delete().eq('id', messageId)
+  if (error) throw error
 }
 
 export async function deleteAllMessages() {
-  if (!isConfigured || !db) {
+  if (!isConfigured || !supabase) {
     saveLocalMessages([])
     return
   }
 
-  const snap = await getDocs(collection(db, COLLECTION))
-  if (snap.empty) return
+  const { error } = await supabase
+    .from('chat_messages')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000')
 
-  const docs = snap.docs
-  for (let i = 0; i < docs.length; i += 500) {
-    const batch = writeBatch(db)
-    docs.slice(i, i + 500).forEach((d) => batch.delete(d.ref))
-    await batch.commit()
-  }
+  if (error) throw error
 }

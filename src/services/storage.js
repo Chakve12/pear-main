@@ -1,12 +1,7 @@
-import {
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-  listAll,
-} from 'firebase/storage'
-import { storage, isConfigured } from './firebaseConfig'
+import { supabase } from './supabaseClient'
+import { isConfigured } from './supabaseConfig'
 
+const BUCKET = 'pear-images'
 const LOCAL_STORAGE_KEY = 'pear_images'
 
 function getLocalImages() {
@@ -31,11 +26,16 @@ function fileToDataUrl(file) {
   })
 }
 
+function publicUrl(path) {
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
+  return data.publicUrl
+}
+
 export async function uploadImage(file, modelId, type = 'uploaded', onProgress) {
   const id = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
   const path = `models/${modelId}/${type}/${id}_${file.name}`
 
-  if (!isConfigured) {
+  if (!isConfigured || !supabase) {
     const url = await fileToDataUrl(file)
     const image = {
       id,
@@ -60,80 +60,77 @@ export async function uploadImage(file, modelId, type = 'uploaded', onProgress) 
     return image
   }
 
-  const storageRef = ref(storage, path)
-  const uploadTask = uploadBytesResumable(storageRef, file, {
+  onProgress?.(10)
+
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     contentType: file.type,
-    customMetadata: { modelId, type },
+    upsert: false,
   })
 
-  return new Promise((resolve, reject) => {
-    uploadTask.on(
-      'state_changed',
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-        onProgress?.(progress)
-      },
-      reject,
-      async () => {
-        const url = await getDownloadURL(uploadTask.snapshot.ref)
-        resolve({
-          id,
-          path,
-          url,
-          name: file.name,
-          modelId,
-          type,
-          size: file.size,
-          createdAt: new Date().toISOString(),
-        })
-      }
-    )
+  if (error) throw error
+
+  onProgress?.(100)
+
+  return {
+    id,
+    path,
+    url: publicUrl(path),
+    name: file.name,
+    modelId,
+    type,
+    size: file.size,
+    createdAt: new Date().toISOString(),
+  }
+}
+
+async function listFolder(prefix) {
+  const { data, error } = await supabase.storage.from(BUCKET).list(prefix, {
+    limit: 200,
+    sortBy: { column: 'created_at', order: 'desc' },
   })
+  if (error || !data) return []
+
+  return data
+    .filter((item) => item.id)
+    .map((item) => {
+      const fullPath = `${prefix}/${item.name}`
+      return {
+        id: item.name,
+        path: fullPath,
+        url: publicUrl(fullPath),
+        name: item.name,
+        createdAt: item.created_at || new Date().toISOString(),
+      }
+    })
 }
 
 export async function getModelImages(modelId, type) {
-  if (!isConfigured) {
+  if (!isConfigured || !supabase) {
     let images = getLocalImages().filter((img) => img.modelId === modelId)
     if (type) images = images.filter((img) => img.type === type)
     return images.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
   }
 
-  const prefix = type
-    ? `models/${modelId}/${type}`
-    : `models/${modelId}`
-  const folderRef = ref(storage, prefix)
+  const types = type ? [type] : ['uploaded', 'edited', 'avatar']
+  const results = await Promise.all(
+    types.map(async (t) => {
+      const items = await listFolder(`models/${modelId}/${t}`)
+      return items.map((item) => ({ ...item, modelId, type: t }))
+    })
+  )
 
-  try {
-    const result = await listAll(folderRef)
-    const urls = await Promise.all(
-      result.items.map(async (itemRef) => {
-        const url = await getDownloadURL(itemRef)
-        return {
-          id: itemRef.name,
-          path: itemRef.fullPath,
-          url,
-          name: itemRef.name,
-          modelId,
-          type: type || 'uploaded',
-          createdAt: new Date().toISOString(),
-        }
-      })
-    )
-    return urls
-  } catch {
-    return []
-  }
+  return results.flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
 }
 
 export async function deleteImage(imagePath) {
-  if (!isConfigured) {
+  if (!isConfigured || !supabase) {
     const images = getLocalImages().filter((img) => img.path !== imagePath)
     saveLocalImages(images)
     return
   }
 
-  const imageRef = ref(storage, imagePath)
-  await deleteObject(imageRef)
+  const { error } = await supabase.storage.from(BUCKET).remove([imagePath])
+  if (error) throw error
 }
 
 export async function downloadImage(url, filename) {

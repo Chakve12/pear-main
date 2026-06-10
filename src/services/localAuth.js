@@ -131,7 +131,7 @@ export function getLocalUserProfiles() {
   return profiles
 }
 
-export function localDeleteAdminUser(uid) {
+export function localDeleteAccount(uid) {
   if (!uid?.startsWith('local_')) throw new Error('ანგარიში ვერ მოიძებნა')
   const email = uid.slice('local_'.length)
   if (email === 'admin@pear.elite') {
@@ -141,8 +141,8 @@ export function localDeleteAdminUser(uid) {
   const users = loadUsers()
   const account = users[email]
   if (!account) throw new Error('ანგარიში ვერ მოიძებნა')
-  if (account.role !== 'admin') {
-    throw new Error('მხოლოდ ადმინის ანგარიშის წაშლა შეგიძლია')
+  if (account.role === 'head_admin') {
+    throw new Error('უფროს ადმინის ანგარიში ვერ წაიშლება')
   }
   if (DEFAULT_USERS[email]) {
     throw new Error('სისტემური ანგარიში ვერ წაიშლება')
@@ -151,3 +151,6 @@ export function localDeleteAdminUser(uid) {
   delete users[email]
   saveUsers(users)
 }
+
+/** @deprecated use localDeleteAccount */
+export const localDeleteAdminUser = localDeleteAccount

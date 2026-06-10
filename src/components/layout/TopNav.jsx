@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import PearLogo from '../ui/PearLogo'
 import ThemeToggle from '../ui/ThemeToggle'
-import { logOut } from '../../services/firebaseAuth'
+import { logOut } from '../../services/authService'
 import { useUserStore } from '../../store/useUserStore'
 import ModelAvatar from '../ui/ModelAvatar'
 import { getProfileAvatar } from '../../services/avatarService'

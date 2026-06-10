@@ -7,12 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "firebase:deploy-rules": "firebase deploy --only firestore:rules,storage",
-    "firebase:deploy": "npm run build && firebase deploy",
-    "setup:firebase": "node scripts/setup-firebase.mjs"
+    "build:preview": "npm run build && npm run preview"
   },
   "dependencies": {
-    "firebase": "^11.6.0",
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.108.1",
     "framer-motion": "^12.9.2",
     "lucide-react": "^0.487.0",
     "react": "^19.1.0",

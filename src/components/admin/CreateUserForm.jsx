@@ -3,8 +3,9 @@ import { UserPlus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
-import { adminCreateUser, isUsingLocalAuth } from '../../services/firebaseAuth'
+import { adminCreateUser, isUsingLocalAuth } from '../../services/authService'
 import { saveModel } from '../../services/modelsService'
+import { logActivityEntry } from '../../services/activityService'
 import { useUserStore, slugifyModelId } from '../../store/useUserStore'
 
 export default function CreateUserForm() {
@@ -67,7 +68,12 @@ export default function CreateUserForm() {
         modelId,
       })
 
-      logActivity(`შეიქმნა ანგარიში: ${user.displayName || user.email}`, 'ადმინი')
+      const activityText = `შეიქმნა ანგარიში: ${user.displayName || user.email}`
+      if (isUsingLocalAuth()) {
+        logActivity(activityText, 'ადმინი')
+      } else {
+        await logActivityEntry(activityText, 'ადმინი')
+      }
       const localOnly = isUsingLocalAuth()
       toast.success(
         role === 'model'
@@ -77,7 +83,7 @@ export default function CreateUserForm() {
       )
       if (localOnly) {
         toast(
-          'ლოკალური რეჟიმი: ეს ანგარიში მხოლოდ ამ ბრაუზერში მუშაობს. სხვებისთვის Firebase დააყენე.',
+          'ლოკალური რეჟიმი: ეს ანგარიში მხოლოდ ამ ბრაუზერში მუშაობს. სხვებისთვის Supabase დააყენე.',
           { icon: '⚠️', duration: 10000 }
         )
       }
@@ -91,7 +97,9 @@ export default function CreateUserForm() {
       const msg =
         err.code === 'auth/email-already-in-use'
           ? 'ეს ელფოსტა უკვე გამოყენებულია'
-          : err.message || 'ანგარიშის შექმნა ვერ მოხერხდა'
+          : err.code === 'auth/email-rate-limit'
+            ? err.message
+            : err.message || 'ანგარიშის შექმნა ვერ მოხერხდა'
       toast.error(msg)
     } finally {
       setLoading(false)
@@ -106,7 +114,7 @@ export default function CreateUserForm() {
       </h3>
       <p className="text-sm text-[var(--text-muted)] mb-5">
         {isUsingLocalAuth()
-          ? 'ლოკალური რეჟიმი — ანგარიში მხოლოდ ამ ბრაუზერში იმუშავებს. სხვებისთვის ჩართე Firebase.'
+          ? 'ლოკალური რეჟიმი — ანგარიში მხოლოდ ამ ბრაუზერში იმუშავებს. სხვებისთვის ჩართე Supabase.'
           : 'მოდელის ანგარიში ავტომატურად დაემატება მოდელების სექციაში და ყველას შეძლებს შესვლას.'}
       </p>
 

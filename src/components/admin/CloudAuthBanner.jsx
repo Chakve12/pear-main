@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { Cloud, CloudOff, Upload } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Button from '../ui/Button'
-import { isUsingLocalAuth } from '../../services/firebaseAuth'
+import { isUsingLocalAuth, migrateLocalUsersToCloud } from '../../services/authService'
 import { getLocalCustomUserCount, hasLocalCustomUsers } from '../../services/localAuth'
-import { migrateLocalUsersToFirebase } from '../../services/firebaseAuth'
 
 export default function CloudAuthBanner() {
   const localMode = isUsingLocalAuth()
@@ -16,7 +15,7 @@ export default function CloudAuthBanner() {
   const handleMigrate = async () => {
     setMigrating(true)
     try {
-      const results = await migrateLocalUsersToFirebase()
+      const results = await migrateLocalUsersToCloud()
       const ok = results.filter((r) => r.ok).length
       const failed = results.filter((r) => !r.ok)
       if (ok) {
@@ -47,7 +46,7 @@ export default function CloudAuthBanner() {
             </h3>
             <p className="text-sm text-[var(--text-muted)] mb-4">
               ამ ბრაუზერში შექმნილი {getLocalCustomUserCount()} ანგარიში ჯერ კიდევ ლოკალურადაა.
-              გადაიტანე Firebase-ში, რომ სხვა მოწყობილობებიდანაც შეძლონ შესვლა.
+              გადაიტანე Supabase-ში, რომ სხვა მოწყობილობებიდანაც შეძლონ შესვლა.
             </p>
             <Button type="button" loading={migrating} onClick={handleMigrate}>
               <Upload size={16} />
@@ -71,17 +70,18 @@ export default function CloudAuthBanner() {
           </h3>
           <p className="text-sm text-[var(--text-muted)] mb-3">
             ახლა ანგარიშები ინახება მხოლოდ ამ ბრაუზერში. ადმინ პანელით შექმნილი მომხმარებლები
-            სხვა ტელეფონიდან ან კომპიუტერიდან ვერ შევა, სანამ Firebase არ დააყენებ.
+            სხვა ტელეფონიდან ან კომპიუტერიდან ვერ შევა, სანამ Supabase არ დააყენებ.
           </p>
           <ol className="text-sm text-[var(--text-muted)] space-y-1.5 mb-4 list-decimal list-inside">
-            <li>ტერმინალში: <code className="text-xs bg-black/20 px-1.5 py-0.5 rounded">npx firebase-tools@latest login</code></li>
-            <li>შემდეგ: <code className="text-xs bg-black/20 px-1.5 py-0.5 rounded">npm run setup:firebase</code></li>
-            <li>Firebase Console → Authentication → Email/Password → ჩართვა</li>
-            <li>გადატვირთე აპი: <code className="text-xs bg-black/20 px-1.5 py-0.5 rounded">npm run dev</code></li>
+            <li>შექმენი პროექტი: <a href="https://supabase.com/dashboard" className="underline" target="_blank" rel="noreferrer">supabase.com/dashboard</a></li>
+            <li>დააკოპირე URL და anon key → <code className="text-xs bg-black/20 px-1.5 py-0.5 rounded">.env</code> ფაილი</li>
+            <li>SQL Editor-ში გაუშვი <code className="text-xs bg-black/20 px-1.5 py-0.5 rounded">supabase/schema.sql</code></li>
+            <li>Authentication → Providers → Email ჩართვა (Confirm email გამორთვა)</li>
+            <li>გადატვირთე: <code className="text-xs bg-black/20 px-1.5 py-0.5 rounded">npm run dev</code></li>
           </ol>
           <p className="text-xs text-[var(--text-muted)] flex items-center gap-1.5">
             <Cloud size={14} />
-            Firebase ჩართვის შემდეგ შექმნილი ანგარიშები ყველასთვის იქნება ხელმისაწვდომი.
+            Supabase უფასოა მცირე გუნდებისთვის — 50K მომხმარებელი თვეში.
           </p>
         </div>
       </div>

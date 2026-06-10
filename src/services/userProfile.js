@@ -1,71 +1,84 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { db, isConfigured } from './firebaseConfig'
+import { supabase } from './supabaseClient'
+import { isConfigured } from './supabaseConfig'
 import { normalizeRole, ROLES } from '../utils/roles'
 
 const ADMIN_EMAIL = 'admin@pear.elite'
 
-export async function getUserProfile(firebaseUser) {
-  if (!firebaseUser) return null
+function rowToProfile(row, authUser) {
+  return {
+    uid: row.id,
+    email: row.email || authUser?.email,
+    displayName: row.display_name || authUser?.user_metadata?.display_name,
+    role: normalizeRole(row.role, row.email || authUser?.email),
+    modelId: row.model_id || null,
+    avatar: row.avatar || null,
+  }
+}
 
-  const email = firebaseUser.email?.toLowerCase() || ''
+export async function getUserProfile(authUser) {
+  if (!authUser) return null
+
+  const email = authUser.email?.toLowerCase() || ''
   const isHeadAdminEmail = email === ADMIN_EMAIL
 
-  if (!isConfigured || !db) {
+  if (!isConfigured || !supabase) {
     return {
-      uid: firebaseUser.uid,
-      email: firebaseUser.email,
-      displayName: isHeadAdminEmail ? 'უფროსი ადმინისტრატორი' : firebaseUser.displayName || email.split('@')[0],
+      uid: authUser.id,
+      email: authUser.email,
+      displayName: isHeadAdminEmail ? 'უფროსი ადმინისტრატორი' : authUser.user_metadata?.display_name || email.split('@')[0],
       role: isHeadAdminEmail ? ROLES.HEAD_ADMIN : ROLES.MODEL,
       modelId: isHeadAdminEmail ? null : email.split('@')[0],
       avatar: null,
     }
   }
 
-  const ref = doc(db, 'users', firebaseUser.uid)
-  const snap = await getDoc(ref)
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', authUser.id)
+    .maybeSingle()
 
-  if (snap.exists()) {
-    const data = snap.data()
-    return {
-      uid: firebaseUser.uid,
-      email: firebaseUser.email,
-      displayName: data.displayName || firebaseUser.displayName,
-      role: normalizeRole(data.role, email),
-      modelId: data.modelId || null,
-      avatar: data.avatar || null,
-    }
+  if (error) throw error
+
+  if (data) {
+    return rowToProfile(data, authUser)
   }
 
   const profile = {
+    id: authUser.id,
     email,
-    displayName: isHeadAdminEmail ? 'უფროსი ადმინისტრატორი' : firebaseUser.displayName || email.split('@')[0],
+    display_name: isHeadAdminEmail ? 'უფროსი ადმინისტრატორი' : authUser.user_metadata?.display_name || email.split('@')[0],
     role: isHeadAdminEmail ? ROLES.HEAD_ADMIN : ROLES.MODEL,
-    modelId: isHeadAdminEmail ? null : email.split('@')[0],
-    createdAt: new Date().toISOString(),
+    model_id: isHeadAdminEmail ? null : email.split('@')[0],
   }
 
-  await setDoc(ref, profile)
-  return { uid: firebaseUser.uid, ...profile }
+  const { data: created, error: insertError } = await supabase
+    .from('profiles')
+    .insert(profile)
+    .select()
+    .single()
+
+  if (insertError) throw insertError
+  return rowToProfile(created, authUser)
 }
 
 export async function createUserProfile(uid, { email, displayName, role = 'model', modelId }) {
-  if (!isConfigured || !db) return
+  if (!isConfigured || !supabase) return
 
-  await setDoc(doc(db, 'users', uid), {
+  await supabase.from('profiles').upsert({
+    id: uid,
     email: email.toLowerCase(),
-    displayName,
+    display_name: displayName,
     role,
-    modelId: role === 'admin' || role === 'head_admin' ? null : modelId || email.split('@')[0],
+    model_id: role === 'admin' || role === 'head_admin' ? null : modelId || email.split('@')[0],
     avatar: null,
-    createdAt: new Date().toISOString(),
   })
 }
 
 export async function saveUserAvatar(uid, avatarUrl) {
-  if (!isConfigured || !db) return
-  await setDoc(
-    doc(db, 'users', uid),
-    { avatar: avatarUrl, updatedAt: new Date().toISOString() },
-    { merge: true }
-  )
+  if (!isConfigured || !supabase) return
+  await supabase
+    .from('profiles')
+    .update({ avatar: avatarUrl, updated_at: new Date().toISOString() })
+    .eq('id', uid)
 }
